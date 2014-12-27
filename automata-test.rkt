@@ -17,14 +17,17 @@
   (values display get-calls))
 
 ;; testing that generated transition functions behave as expected
-(check-equal? 'closed (door-func 'open 'neither))
-(check-equal? 'open (door-func 'open 'front))
-(check-equal? 'open (door-func 'open 'rear))
-(check-equal? 'open (door-func 'open 'both))
-(check-equal? 'open (door-func 'closed 'front))
-(check-equal? 'closed (door-func 'closed 'rear))
-(check-equal? 'closed (door-func 'closed 'both))
-(check-equal? 'closed (door-func 'closed 'neither))
+(test-case "table->lookup"
+  (define delta (table->lookup door-fsm-table))
+  (check-equal? (delta 'open 'neither) 'closed)
+  (check-equal? (delta 'open 'neither) 'closed)
+  (check-equal? (delta 'open 'front) 'open)
+  (check-equal? (delta 'open 'rear) 'open)
+  (check-equal? (delta 'open 'both) 'open)
+  (check-equal? (delta 'closed 'front) 'open)
+  (check-equal? (delta 'closed 'rear) 'closed)
+  (check-equal? (delta 'closed 'both) 'closed)
+  (check-equal? (delta 'closed 'neither) 'closed))
 
 ;; some run-fsm tests
 (check-eq? (run-fsm door-dfsm '(neither rear)) 'closed)

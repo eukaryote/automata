@@ -8,13 +8,12 @@
 ;; This module is for testing and experimentation only, so exposing everything.
 (provide (all-defined-out))
 
-;; A transition function (from Sipser) for a supermarket-style automatic door
-;; that can be open closed and receives inputs for whether there are
-;; people in front or behind the doors or both or neither.
-(define door-func
-  (table->lookup
-    '((open (neither . closed) (front . open) (rear . open) (both . open))
-      (closed (front . open) (neither . closed) (rear . closed) (both . closed)))))
+;; Table for transition function of an example from Sipser of a
+;; supermarket-style automatic door that can be open or closed and has states
+;; related to sensors in front of and to the rear of the door.
+(define door-fsm-table
+  '((open (neither . closed) (front . open) (rear . open) (both . open))
+    (closed (front . open) (neither . closed) (rear . closed) (both . closed))))
 
 ;; Door FSM based using above transition function.
 (define door-dfsm
@@ -23,7 +22,7 @@
     '(front rear both neither)
     'closed
     '(closed)
-    door-func))
+    (table->lookup door-fsm-table)))
 
 ;; An FSM over #\0 and #\1 that accepts if the input
 ;; ends with an even number of zeros (at least 2).
