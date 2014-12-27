@@ -152,7 +152,7 @@
         (q30 (,0 . (,0 ,1)) (,1 . (,1 ,0)))
         (q31 (,0 . (,0 ,0)) (,1 . (,1 ,1)))))))
 
-;; transducer that echoes its binary input
+;; A Mealy machine transducer that echoes its binary input
 (define identity-transducer
   (make-transducer
     '(q0)
@@ -165,7 +165,7 @@
     (table->lookup
       `((q0 (,0 . (,0)) (,1 . (,1)))))))
 
-;; transducer that echoes binary input in duplicate
+;; A Mealy machine transducer that echoes binary input in duplicate
 (define duplicate-transducer
   (make-transducer
     '(q0)
@@ -178,7 +178,7 @@
     (table->lookup
       `((q0 (,0 . (,0 ,0)) (,1 . (,1 ,1)))))))
 
-;; transducer that outputs each binary input prefixed by a 0
+;; A Mealy machine transducer that outputs each binary input prefixed by a 0
 (define zero-prefixing-transducer
   (make-transducer
     '(q0)
@@ -190,4 +190,3 @@
       `((q0 (,0 . q0) (,1 . q0))))
     (table->lookup
       `((q0 (,0 . (,0 ,0)) (,1 . (,0 ,1)))))))
-
