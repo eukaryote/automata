@@ -55,21 +55,27 @@
 
 (test-case
   "run-fsm deterministic tests: door-fsm"
-  (check-fsm? door-dfsm '(neither rear) 'closed)
-  (check-fsm? door-dfsm '() 'closed)
-  (check-fsm? door-dfsm '(front) #f)
+  (define fsm door-dfsm)
+  (check-fsm? fsm '() 'closed)
+  (check-fsm? fsm '(rear) 'closed)
+  (check-fsm? fsm '(neither) 'closed)
+  (check-fsm? fsm '(both) 'closed)
+  (check-fsm? fsm '(front) #f)
+  (check-fsm? fsm '(front neither) 'closed)
+  (check-fsm? fsm '(front rear neither) 'closed)
+  (check-fsm? fsm '(front neither both front) #f)
 )
 
 (test-case
   "run-fsm deterministic tests: ends-with-even-number-of-zeros-dfsm"
   (define fsm ends-with-even-number-of-zeros-dfsm)
-  (check-fsm? fsm '() #f)
-  (check-fsm? fsm (string->list "0") #f)
-  (check-fsm? fsm (string->list "00") 'yes)
-  (check-fsm? fsm (string->list "100") 'yes)
-  (check-fsm? fsm (string->list "1001000") #f)
-  (check-fsm? fsm (string->list "101100") 'yes)
-  (check-fsm? fsm (string->list "10000") 'yes)
+  (check-fsm? fsm "" #f)
+  (check-fsm? fsm "0" #f)
+  (check-fsm? fsm "00" 'yes)
+  (check-fsm? fsm "100" 'yes)
+  (check-fsm? fsm "1001000" #f)
+  (check-fsm? fsm "101100" 'yes)
+  (check-fsm? fsm "10000" 'yes)
 )
 
 (test-case
@@ -128,15 +134,20 @@
   "run-transducer tests: duplicate-transducer"
   (define tx duplicate-transducer)
   (check-transducer? tx '() '(q0 . ()))
-  (check-transducer? tx '() '(q0 . ()))
-  (check-transducer? tx '(0 1 1) '(q0 . (0 0 1 1 1 1)))
+  (check-transducer? tx '(0) '(q0 . (0 0)))
+  (check-transducer? tx '(1) '(q0 . (1 1)))
+  (check-transducer? tx '(1 1) '(q0 . (1 1 1 1)))
+  (check-transducer? tx '(0 1 0 1) '(q0 . (0 0 1 1 0 0 1 1)))
 )
 
 (test-case
   "run-transducer tests: zero-prefixing-transducer"
   (define tx zero-prefixing-transducer)
+  (check-transducer? tx '() '(q0 . ()))
   (check-transducer? tx '(0) '(q0 . (0 0)))
   (check-transducer? tx '(1) '(q0 . (0 1)))
+  (check-transducer? tx '(0 1 1) '(q0 . (0 0 0 1 0 1)))
+  (check-transducer? tx '(1 1 1 0) '(q0 . (0 1 0 1 0 1 0 0)))
 )
 
 (test-case
