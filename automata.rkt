@@ -4,7 +4,30 @@
 (require data/bit-vector)
 (require data/gvector)
 
-(provide make-fsm make-transducer run-fsm run-transducer table->lookup)
+(provide
+
+  make-fsm
+  run-fsm
+  fsm-states
+  fsm-input-alphabet
+  fsm-start-state
+  fsm-accepting-states
+  fsm-transition
+  fsm-nondeterministic
+
+  make-transducer
+  run-transducer
+  transducer-states
+  transducer-input-alphabet
+  transducer-output-alphabet
+  transducer-start-state
+  transducer-accepting-states
+  transducer-transition
+  transducer-display
+
+  table->lookup
+  clone-fsm
+  clone-transducer)
 
 ;;;; Public constructors
 
@@ -75,6 +98,27 @@
 
 ;; Public constants and utility functions
 
+;; Clone the given fsm, substituting any of the keyword arguments that
+;; are given for those in the original or using the original's if not given.
+(define (clone-fsm fsm #:states [s (fsm-states fsm)]
+                       #:input-alphabet [ia (fsm-input-alphabet fsm)]
+                       #:start-state [ss (fsm-start-state fsm)]
+                       #:accepting-states [as (fsm-accepting-states fsm)]
+                       #:transition [t (fsm-transition fsm)]
+                       #:nondeterministic [d (fsm-nondeterministic fsm)])
+  (make-fsm s ia ss as t d))
+
+;; Clone the given transducer, substituting any of the keyword arguments that
+;; are given for those in the original or using the original's if not given.
+(define (clone-transducer tx #:states [s (transducer-states tx)]
+                             #:input-alphabet [ia (transducer-input-alphabet tx)]
+                             #:output-alphabet [oa (transducer-output-alphabet tx)]
+                             #:start-state [ss (transducer-start-state tx)]
+                             #:accepting-states [as (transducer-accepting-states tx)]
+                             #:transition [t (transducer-transition tx)]
+                             #:display [d (transducer-display tx)])
+  (make-transducer s ia oa ss as t d))
+
 ;; Convert a table representation of a lookup function (e.g., for a transition
 ;; function or a display/output function) into an actual lookup function
 ;; for use with an fsm or transducer.
@@ -108,7 +152,12 @@
       (hash-ref ht (cons key1 key2)))))
 
 
-;; Structs for each kind of supported automaton (constructors are private)
+;; Structs for each kind of supported automaton.
+
+;; The struct-provided constructors are not public, since we need to do
+;; argument checking and conversion to ensure invariants for things like
+;; start-state and accepting-states being subsets of all sets, and all the
+;; collection-type fields being sets rather than lists.
 
 (struct fsm
   (;; a finite set of states (Q):

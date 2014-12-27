@@ -26,6 +26,7 @@
         (when (not (equal? output expected))
           (fail-check))))))
 
+
 ;; Testing helper that returns three functions, the first can be used as an
 ;; echoing display function for a mealy machine, the second returns a list
 ;; of all calls made to the first function, and the third will clear the
@@ -63,8 +64,7 @@
   (check-fsm? fsm '(front) #f)
   (check-fsm? fsm '(front neither) 'closed)
   (check-fsm? fsm '(front rear neither) 'closed)
-  (check-fsm? fsm '(front neither both front) #f)
-)
+  (check-fsm? fsm '(front neither both front) #f))
 
 (test-case
   "run-fsm deterministic tests: ends-with-even-number-of-zeros-dfsm"
@@ -75,8 +75,7 @@
   (check-fsm? fsm "100" 'yes)
   (check-fsm? fsm "1001000" #f)
   (check-fsm? fsm "101100" 'yes)
-  (check-fsm? fsm "10000" 'yes)
-)
+  (check-fsm? fsm "10000" 'yes))
 
 (test-case
   "run-fsm deterministic tests: modulo-three-counter-dfsm"
@@ -86,8 +85,7 @@
   (check-fsm? fsm '(2 2) #f)
   (check-fsm? fsm '(2 2 2) 'q0)
   (check-fsm? fsm '(1 reset) 'q0)
-  (check-fsm? fsm '(1 reset 2 2 2) 'q0)
-)
+  (check-fsm? fsm '(1 reset 2 2 2) 'q0))
 
 (test-case
   "run-fsm nondeterministic tests: contains-101-or-11-ndfsm"
@@ -101,8 +99,7 @@
   (check-fsm? fsm '(1 0 1) (set 'q4))
   (check-fsm? fsm '(1 0 1 1) (set 'q4))
   (check-fsm? fsm '(1 1 0 1) (set 'q4))
-  (check-fsm? fsm '(1 1 1 1 1) (set 'q4))
-)
+  (check-fsm? fsm '(1 1 1 1 1) (set 'q4)))
 
 (test-case
   "run-fsm nondeterministic tests: missing-letter-ndfsm"
@@ -114,8 +111,7 @@
   (check-fsm? fsm "c" (set 'q1 'q2 'q4))
   (check-fsm? fsm "d" (set 'q1 'q2 'q3))
   (check-fsm? fsm "abadaba" (set 'q3))
-  (check-fsm? fsm "cada" (set 'q2))
-)
+  (check-fsm? fsm "cada" (set 'q2)))
 
 (test-case
   "run-transducer tests: flip-bits-transducer"
@@ -127,8 +123,7 @@
   (check-transducer? tx '(0 1) (cons #f '(1 0)))
   (check-transducer? tx '(1 0) (cons #f '(0 1)))
   (check-transducer? tx '(1 1) (cons #f '(0 0)))
-  (check-transducer? tx '(1 0 1 0 0 1 0 0 0) '(#f . (0 1 0 1 1 0 1 1 1)))
-)
+  (check-transducer? tx '(1 0 1 0 0 1 0 0 0) '(#f . (0 1 0 1 1 0 1 1 1))))
 
 (test-case
   "run-transducer tests: duplicate-transducer"
@@ -137,8 +132,7 @@
   (check-transducer? tx '(0) '(q0 . (0 0)))
   (check-transducer? tx '(1) '(q0 . (1 1)))
   (check-transducer? tx '(1 1) '(q0 . (1 1 1 1)))
-  (check-transducer? tx '(0 1 0 1) '(q0 . (0 0 1 1 0 0 1 1)))
-)
+  (check-transducer? tx '(0 1 0 1) '(q0 . (0 0 1 1 0 0 1 1))))
 
 (test-case
   "run-transducer tests: zero-prefixing-transducer"
@@ -147,8 +141,7 @@
   (check-transducer? tx '(0) '(q0 . (0 0)))
   (check-transducer? tx '(1) '(q0 . (0 1)))
   (check-transducer? tx '(0 1 1) '(q0 . (0 0 0 1 0 1)))
-  (check-transducer? tx '(1 1 1 0) '(q0 . (0 1 0 1 0 1 0 0)))
-)
+  (check-transducer? tx '(1 1 1 0) '(q0 . (0 1 0 1 0 1 0 0))))
 
 (test-case
   "run-transducer tests: odd-parity-bit-transducer"
@@ -168,37 +161,125 @@
   (check-transducer? tx '(1 1 0 0) '(q0 . (1 1 0 0 1)))
   (check-transducer? tx '(1 1 0 1) '(q0 . (1 1 0 1 0)))
   (check-transducer? tx '(1 1 1 0) '(q0 . (1 1 1 0 0)))
-  (check-transducer? tx '(1 1 1 1) '(q0 . (1 1 1 1 1)))
-)
+  (check-transducer? tx '(1 1 1 1) '(q0 . (1 1 1 1 1))))
 
+
+(test-case
+  "clone-fsm tests"
+  (define fsm door-dfsm)
+  (define states (fsm-states fsm))
+  (define alphabet (fsm-input-alphabet fsm))
+  (define start-state (fsm-start-state fsm))
+  (define accepting-states (fsm-accepting-states fsm))
+  (define delta (fsm-transition fsm))
+  (define nondeterministic (fsm-nondeterministic fsm))
+  (define test-states (set 'open 'closed 'borked))
+  (define test-alphabet (set-add alphabet 'bork))
+  (define test-start-state 'borked)
+  (define test-accepting-states (set 'borked))
+  (define test-delta identity)
+  (define test-nondeterministic (not nondeterministic))
+  (define (fields fsm)
+    (list (fsm-states fsm)
+          (fsm-input-alphabet fsm)
+          (fsm-start-state fsm)
+          (fsm-accepting-states fsm)
+          (fsm-transition fsm)
+          (fsm-nondeterministic fsm)))
+  (define test-fsm
+    (clone-fsm fsm #:states test-states
+                   #:input-alphabet test-alphabet
+                   #:start-state test-start-state
+                   #:accepting-states test-accepting-states
+                   #:transition test-delta
+                   #:nondeterministic test-nondeterministic))
+  (check-equal? (fields fsm) (fields (clone-fsm fsm)))
+  (check-equal?
+    (fields test-fsm)
+    (list test-states
+          test-alphabet
+          test-start-state
+          test-accepting-states
+          test-delta
+          test-nondeterministic))
+  (check-not-equal? (fields fsm) (fields test-fsm)))
+
+(test-case
+  "clone-transducer tests"
+  (define tx identity-transducer)
+  (define states (transducer-states tx))
+  (define input-alphabet (transducer-input-alphabet tx))
+  (define output-alphabet (transducer-output-alphabet tx))
+  (define start-state (transducer-start-state tx))
+  (define accepting-states (transducer-accepting-states tx))
+  (define delta (transducer-transition tx))
+  (define display (transducer-display tx))
+  (define test-states (set 'q0 'q1))
+  (define test-alphabet (set 0 1 2 3))
+  (define test-start-state 'q1)
+  (define test-accepting-states (set 'q1))
+  (define test-delta identity)
+  (define test-display identity)
+  (define (fields tx)
+    (list (transducer-states tx)
+          (transducer-input-alphabet tx)
+          (transducer-output-alphabet tx)
+          (transducer-start-state tx)
+          (transducer-accepting-states tx)
+          (transducer-transition tx)
+          (transducer-display tx)))
+  (define test-tx
+    (clone-transducer tx #:states test-states
+                         #:input-alphabet test-alphabet
+                         #:output-alphabet test-alphabet
+                         #:start-state test-start-state
+                         #:accepting-states test-accepting-states
+                         #:transition test-delta
+                         #:display test-display))
+  (check-equal? (fields tx) (fields (clone-transducer tx)))
+  (check-equal?
+    (fields test-tx)
+    (list test-states
+          test-alphabet
+          test-alphabet
+          test-start-state
+          test-accepting-states
+          test-delta
+          test-display))
+  (check-not-equal? (fields tx) (fields test-tx)))
 
 
 (require/expose "automata.rkt" (make-output-helpers))
 
-(test-case "streaming output helper tests"
+(test-case
+  "transducer display helper tests"
   (define-values (display get-display-calls clear-calls!)
                  (mealy-display-helpers))
-  ;; test transducer with an display function that echoes input but records
-  ;; the calls, which can be retrieved for verification using get-display-calls
-  (define transducer
-    (make-transducer '(q0 q1) (list 0 1) (list 0 1) 'q0 '(q0)
-                     (table->lookup `((q0 (,0 . q0) (,1 . q0))))
-                     display))
-  (define-values (transition-output make-result)
-                 (make-output-helpers transducer))
+  (check-equal? (get-display-calls) '())
+  (display 'q0 0)
+  (check-equal? (get-display-calls) '((q0 . 0)))
+  (display 'q1 1)
+  (check-equal? (get-display-calls) '((q0 . 0) (q1 . 1)))
+  (clear-calls!)
+  (check-equal? (get-display-calls) '())
+  (display 'q1 1)
+  (display 'q0 0)
+  (check-equal? (get-display-calls) '((q1 . 1) (q0 . 0))))
 
-  (check-true (procedure? transition-output))
-  (check-true (procedure? make-result))
+(test-case
+  "transducer streaming output helper tests"
+  (define-values (display get-display-calls clear-calls!)
+                 (mealy-display-helpers))
+  (define tx (clone-transducer identity-transducer #:display display))
+  (define-values (transition-output make-result)
+                 (make-output-helpers tx))
   (check-equal? (make-result 'q0) 'q0)
   (transition-output 'q0 1 'q0)
   (check-equal? (make-result 'q0) 'q0)
+  (check-equal? (get-display-calls) '((q0 . 1)))
 
   (clear-calls!)
-
-  ;; verify output  is just the accepting state
-  (check-equal? (run-transducer transducer (list 0 1 1 0 1)) 'q0)
-
-  ;; verify that the display function was called with the expected args
+  (check-equal? (run-transducer tx (list 0 1 1 0 1)) 'q0)
   (check-equal?
     (get-display-calls)
     `((q0 . ,0)
@@ -208,7 +289,7 @@
       (q0 . ,1))))
 
 (test-case
-  "non-streaming output helper tests -- identity-transducer"
+  "transducer non-streaming output helper tests -- identity-transducer"
   (define-values (transition-output make-result)
                  (make-output-helpers identity-transducer #t))
 
@@ -221,7 +302,7 @@
   (check-equal? (make-result 'q0) (list 'q0 1 0)))
 
 (test-case
-  "non-streaming output helper tests -- duplicate-transducer"
+  "transducer non-streaming output helper tests -- duplicate-transducer"
   (define-values (transition-output make-result)
                  (make-output-helpers duplicate-transducer #t))
   (check-equal? (make-result 'q0) '(q0))
@@ -237,7 +318,7 @@
 (require/expose "automata.rkt" (make-state-helpers))
 
 (test-case
-  "state helper tests"
+  "transducer state helper tests"
   (define states '(q0 q1 q2 q3))
   (define-values
     (state->index index->state fold-active-states
@@ -257,5 +338,4 @@
   (check-equal?
     (fold-active-states (lambda (state acc) (set-add acc state))
                         (set))
-    (list->set '(q0 q3)))
-)
+    (list->set '(q0 q3))))
