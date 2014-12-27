@@ -4,6 +4,28 @@
 (require "automata.rkt")
 (require "machines.rkt")
 
+;; Check that fsm when run with given input has expected result.
+(define-check (check-fsm? fsm input expected)
+  (with-check-info (('name "check-fsm?")
+                    ('params input)
+                    ('expected expected)
+                    ('message "Unexpected fsm result"))
+    (let ([output (run-fsm fsm input)])
+      (with-check-info (('actual output))
+          (when (not (equal? output expected))
+            (fail-check))))))
+
+;; Check that transducer when run with given input has expected result.
+(define-check (check-transducer? transducer input expected)
+  (with-check-info (('name "check-transducer?")
+                    ('params input)
+                    ('expected expected)
+                    ('message "Unexpected transducer result"))
+    (let ([output (run-transducer transducer input #t)])
+      (with-check-info (('actual output))
+        (when (not (equal? output expected))
+          (fail-check))))))
+
 ;; Testing helper that returns three functions, the first can be used as an
 ;; echoing display function for a mealy machine, the second returns a list
 ;; of all calls made to the first function, and the third will clear the
@@ -16,6 +38,7 @@
   (define (get-calls) (reverse calls))
   (define (clear!) (set! calls '()))
   (values display get-calls clear!))
+
 
 (test-case
   "table->lookup tests"
@@ -31,93 +54,112 @@
   (check-equal? (delta 'closed 'neither) 'closed))
 
 (test-case
-  "run-fsm deterministic tests"
-  (check-eq? (run-fsm door-dfsm '(neither rear)) 'closed)
-  (check-eq? (run-fsm door-dfsm '()) 'closed)
-  (check-eq? (run-fsm door-dfsm '(front)) #f)
-
-  (check-eq?
-    (run-fsm ends-with-even-number-of-zeros-dfsm '())
-    #f)
-  (check-eq?
-    (run-fsm ends-with-even-number-of-zeros-dfsm (string->list "01"))
-    #f)
-  (check-eq?
-    (run-fsm ends-with-even-number-of-zeros-dfsm (string->list "100"))
-    'yes)
-  (check-eq?
-    (run-fsm ends-with-even-number-of-zeros-dfsm (string->list "10010"))
-    #f)
-  (check-eq?
-    (run-fsm ends-with-even-number-of-zeros-dfsm (string->list "101100"))
-    'yes)
-
-  (check-eq?
-    (run-fsm modulo-three-counter-dfsm (list 0 1 0 1 0 1 0 0))
-    'q0)
-  (check-eq?
-    (run-fsm modulo-three-counter-dfsm (list 2 2))
-    #f)
-  (check-eq?
-    (run-fsm modulo-three-counter-dfsm (list 2 2 2))
-    'q0)
-  (check-eq?
-    (run-fsm modulo-three-counter-dfsm (list 1 'reset))
-    'q0)
+  "run-fsm deterministic tests: door-fsm"
+  (check-fsm? door-dfsm '(neither rear) 'closed)
+  (check-fsm? door-dfsm '() 'closed)
+  (check-fsm? door-dfsm '(front) #f)
 )
 
 (test-case
-  "run-fsm nondeterministic tests"
-  (check-equal?
-    (run-fsm contains-101-or-11-ndfsm (list 0 0 1))
-    #f)
-  (check-equal?
-    (run-fsm contains-101-or-11-ndfsm (list 1 1))
-    (set 'q4))
-  (check-equal?
-    (run-fsm missing-letter-ndfsm '())
-    (set 'q1 'q2 'q3 'q4))
-  (check-equal?
-    (run-fsm missing-letter-ndfsm (string->list "abaccbacc"))
-    (set 'q4))
+  "run-fsm deterministic tests: ends-with-even-number-of-zeros-dfsm"
+  (define fsm ends-with-even-number-of-zeros-dfsm)
+  (check-fsm? fsm '() #f)
+  (check-fsm? fsm (string->list "0") #f)
+  (check-fsm? fsm (string->list "00") 'yes)
+  (check-fsm? fsm (string->list "100") 'yes)
+  (check-fsm? fsm (string->list "1001000") #f)
+  (check-fsm? fsm (string->list "101100") 'yes)
+  (check-fsm? fsm (string->list "10000") 'yes)
 )
 
 (test-case
-  "run-transducer tests"
+  "run-fsm deterministic tests: modulo-three-counter-dfsm"
+  (define fsm modulo-three-counter-dfsm)
+  (check-fsm? fsm '() 'q0)
+  (check-fsm? fsm '(0 1 0 1 0 1 0 0) 'q0)
+  (check-fsm? fsm '(2 2) #f)
+  (check-fsm? fsm '(2 2 2) 'q0)
+  (check-fsm? fsm '(1 reset) 'q0)
+  (check-fsm? fsm '(1 reset 2 2 2) 'q0)
+)
 
-  (check-equal?
-    (run-transducer flip-bits-transducer (list 1 0 1 0 0) #t)
-    (cons #f (list 0 1 0 1 1)))
-  (check-equal?
-    (run-transducer duplicate-transducer (list 0 1 1) #t)
-    (cons 'q0 (list 0 0 1 1 1 1)))
-  (check-equal?
-    (run-transducer zero-prefixing-transducer (list 0) #t)
-    (cons 'q0 (list 0 0)))
-  (check-equal?
-    (run-transducer zero-prefixing-transducer (list 1) #t)
-    (cons 'q0 (list 0 1)))
-  (for-each
-    (lambda (pr)
-      (check-equal?
-        (run-transducer odd-parity-bit-transducer (car pr) #t)
-        (cons 'q0 (cdr pr))))
-    `(((0 0 0 0) . (0 0 0 0 1))
-      ((0 0 0 1) . (0 0 0 1 0))
-      ((0 0 1 0) . (0 0 1 0 0))
-      ((0 0 1 1) . (0 0 1 1 1))
-      ((0 1 0 0) . (0 1 0 0 0))
-      ((0 1 0 1) . (0 1 0 1 1))
-      ((0 1 1 0) . (0 1 1 0 1))
-      ((0 1 1 1) . (0 1 1 1 0))
-      ((1 0 0 0) . (1 0 0 0 0))
-      ((1 0 0 1) . (1 0 0 1 1))
-      ((1 0 1 0) . (1 0 1 0 1))
-      ((1 0 1 1) . (1 0 1 1 0))
-      ((1 1 0 0) . (1 1 0 0 1))
-      ((1 1 0 1) . (1 1 0 1 0))
-      ((1 1 1 0) . (1 1 1 0 0))
-      ((1 1 1 1) . (1 1 1 1 1)))))
+(test-case
+  "run-fsm nondeterministic tests: contains-101-or-11-ndfsm"
+  (define fsm contains-101-or-11-ndfsm)
+  (check-fsm? fsm '() #f)
+  (check-fsm? fsm '(0) #f)
+  (check-fsm? fsm '(1) #f)
+  (check-fsm? fsm '(0 0 1 0 0) #f)
+  (check-fsm? fsm '(1 0 0) #f)
+  (check-fsm? fsm '(1 1) (set 'q4))
+  (check-fsm? fsm '(1 0 1) (set 'q4))
+  (check-fsm? fsm '(1 0 1 1) (set 'q4))
+  (check-fsm? fsm '(1 1 0 1) (set 'q4))
+  (check-fsm? fsm '(1 1 1 1 1) (set 'q4))
+)
+
+(test-case
+  "run-fsm nondeterministic tests: missing-letter-ndfsm"
+  (define fsm missing-letter-ndfsm)
+  (check-fsm? fsm '() (set 'q1 'q2 'q3 'q4))
+  (check-fsm? fsm "abcd" #f)
+  (check-fsm? fsm "a" (set 'q2 'q3 'q4))
+  (check-fsm? fsm  "b" (set 'q1 'q3 'q4))
+  (check-fsm? fsm "c" (set 'q1 'q2 'q4))
+  (check-fsm? fsm "d" (set 'q1 'q2 'q3))
+  (check-fsm? fsm "abadaba" (set 'q3))
+  (check-fsm? fsm "cada" (set 'q2))
+)
+
+(test-case
+  "run-transducer tests: flip-bits-transducer"
+  (define tx flip-bits-transducer)
+  (check-transducer? tx '() (cons #f '()))
+  (check-transducer? tx '(0) (cons #f '(1)))
+  (check-transducer? tx '(1) (cons #f '(0)))
+  (check-transducer? tx '(0 0) (cons #f '(1 1)))
+  (check-transducer? tx '(0 1) (cons #f '(1 0)))
+  (check-transducer? tx '(1 0) (cons #f '(0 1)))
+  (check-transducer? tx '(1 1) (cons #f '(0 0)))
+  (check-transducer? tx '(1 0 1 0 0 1 0 0 0) '(#f . (0 1 0 1 1 0 1 1 1)))
+)
+
+(test-case
+  "run-transducer tests: duplicate-transducer"
+  (define tx duplicate-transducer)
+  (check-transducer? tx '() '(q0 . ()))
+  (check-transducer? tx '() '(q0 . ()))
+  (check-transducer? tx '(0 1 1) '(q0 . (0 0 1 1 1 1)))
+)
+
+(test-case
+  "run-transducer tests: zero-prefixing-transducer"
+  (define tx zero-prefixing-transducer)
+  (check-transducer? tx '(0) '(q0 . (0 0)))
+  (check-transducer? tx '(1) '(q0 . (0 1)))
+)
+
+(test-case
+  "run-transducer tests: odd-parity-bit-transducer"
+  (define tx odd-parity-bit-transducer)
+  (check-transducer? tx '(0 0 0 0) '(q0 . (0 0 0 0 1)))
+  (check-transducer? tx '(0 0 0 1) '(q0 . (0 0 0 1 0)))
+  (check-transducer? tx '(0 0 1 0) '(q0 . (0 0 1 0 0)))
+  (check-transducer? tx '(0 0 1 1) '(q0 . (0 0 1 1 1)))
+  (check-transducer? tx '(0 1 0 0) '(q0 . (0 1 0 0 0)))
+  (check-transducer? tx '(0 1 0 1) '(q0 . (0 1 0 1 1)))
+  (check-transducer? tx '(0 1 1 0) '(q0 . (0 1 1 0 1)))
+  (check-transducer? tx '(0 1 1 1) '(q0 . (0 1 1 1 0)))
+  (check-transducer? tx '(1 0 0 0) '(q0 . (1 0 0 0 0)))
+  (check-transducer? tx '(1 0 0 1) '(q0 . (1 0 0 1 1)))
+  (check-transducer? tx '(1 0 1 0) '(q0 . (1 0 1 0 1)))
+  (check-transducer? tx '(1 0 1 1) '(q0 . (1 0 1 1 0)))
+  (check-transducer? tx '(1 1 0 0) '(q0 . (1 1 0 0 1)))
+  (check-transducer? tx '(1 1 0 1) '(q0 . (1 1 0 1 0)))
+  (check-transducer? tx '(1 1 1 0) '(q0 . (1 1 1 0 0)))
+  (check-transducer? tx '(1 1 1 1) '(q0 . (1 1 1 1 1)))
+)
+
 
 
 (require/expose "automata.rkt" (make-output-helpers))

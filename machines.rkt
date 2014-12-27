@@ -76,7 +76,7 @@
             [(eq? 'q3 state) (if (eq? 1 symbol)
                                  (list 'q4)
                                  '())]
-            [(eq? 'q4 state) 'q4]))
+            [(eq? 'q4 state) (list 'q4)]))
     (lambda (state) (if (eq? state 'q2) (list 'q3) '()))))
 
 ;; An FSM over #\0 and #\1 that accepts if it gets a non-empty input

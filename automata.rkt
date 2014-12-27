@@ -71,7 +71,7 @@
           (verify-transition-state next-state all-states)
           (transition-output current-state input next-state)
           (run-iter next-state (stream-rest inputs)))))
-  (run-iter (transducer-start-state t) inputs))
+  (run-iter (transducer-start-state t) (as-input-stream inputs)))
 
 ;; Public constants and utility functions
 
@@ -161,7 +161,7 @@
             (when (not (set-member? (fsm-states fsm) next-state))
               (error (format "invalid transition result: ~v" next-state)))
             (run next-state (stream-rest symbols))))))
-  (run (fsm-start-state fsm) inputs))
+  (run (fsm-start-state fsm) (as-input-stream inputs)))
 
 
 (define (expand-recursively base-elems expander)
@@ -196,7 +196,7 @@
       (set-intersect (list->set (map-active-states identity))
                       (fsm-accepting-states fsm))])
     (if (set-empty? final-states) #f final-states)))
-  (define (run)
+  (define (run inputs)
     (if (stream-empty? inputs)
         (expand-epsilon-states)  ; nothing but epsilon-expansion if no input
         (for ([input inputs])    ; otherwise, for each input, expand, transition, and update
@@ -205,9 +205,15 @@
             (fold-active-states
               (lambda (state acc) (set-union acc (as-set ((fsm-transition fsm) state input))))
               (set))))))
-  (run)
+  (run (as-input-stream inputs))
   (make-result))
 
+;; Convert inputs to a stream if needed, or raise error if not a supported
+;; input format (string is currently the only non-stream format supported).
+(define (as-input-stream inputs)
+  (cond [(stream? inputs) inputs]
+        [(string? inputs) (string->list inputs)]
+        [#t (error "input format must be a stream or a string")]))
 
 ; For a given transducer t, generate two helper functions (referred to as
 ; 'transition-output' and 'make-result' below) that handle processing the
