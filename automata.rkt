@@ -25,6 +25,7 @@
   transducer-transition
   transducer-display
 
+  trace-automata
   table->lookup
   clone-fsm
   clone-transducer)
@@ -97,6 +98,10 @@
   (run-iter (transducer-start-state t) (as-input-stream inputs)))
 
 ;; Public constants and utility functions
+
+;; Trace information is output to stdout if trace-automata is not #f.
+(define trace-automata (make-parameter #f))
+
 
 ;; Clone the given fsm, substituting any of the keyword arguments that
 ;; are given for those in the original or using the original's if not given.
@@ -200,16 +205,19 @@
 ;;;; Private implementations
 
 (define (run-deterministic-fsm fsm inputs)
-  (define (run current-state symbols)
-    (if (stream-empty? symbols)
+  (define (run current-state inputs)
+    (if (stream-empty? inputs)
         (if (set-member? (fsm-accepting-states fsm) current-state) current-state #f)
-        (let ([symbol (stream-first symbols)])
-          (when (not (set-member? (fsm-input-alphabet fsm) symbol))
-            (error (format "invalid input: ~v" symbol)))
-          (let ([next-state ((fsm-transition fsm) current-state symbol)])
-            (when (not (set-member? (fsm-states fsm) next-state))
+        (let ([input (stream-first inputs)])
+          (when (trace-automata) (printf "processing input: ~v\n" input))
+          (when (trace-automata) (printf "  active-state (initial):                  ~v\n" current-state))
+          (unless (set-member? (fsm-input-alphabet fsm) input)
+            (error (format "invalid input: ~v" input)))
+          (let ([next-state ((fsm-transition fsm) current-state input)])
+            (unless (set-member? (fsm-states fsm) next-state)
               (error (format "invalid transition result: ~v" next-state)))
-            (run next-state (stream-rest symbols))))))
+            (when (trace-automata) (printf "  active-state (after-transition):         ~v\n" next-state))
+            (run next-state (stream-rest inputs))))))
   (run (fsm-start-state fsm) (as-input-stream inputs)))
 
 
@@ -238,24 +246,33 @@
                   reset-active-states!
                   update-active-states!)
      (make-state-helpers (fsm-states fsm) (list (fsm-start-state fsm))))
+  (define (active-states) (list->set (map-active-states identity)))
   (define (expand-epsilon-states)
-    (update-active-states! (epsilon-closure fsm (map-active-states identity))))
+    (update-active-states! (epsilon-closure fsm (active-states))))
   (define (make-result)
-    (let ([final-states
-      (set-intersect (list->set (map-active-states identity))
-                      (fsm-accepting-states fsm))])
-    (if (set-empty? final-states) #f final-states)))
+    (let ([final-states (set-intersect (active-states) (fsm-accepting-states fsm))])
+      (if (set-empty? final-states) #f final-states)))
+  (define (successor-states input)
+    (fold-active-states
+      (lambda (state acc) (set-union acc (as-set ((fsm-transition fsm) state input))))
+      (set)))
   (define (run inputs)
+    (when (and (not (stream-empty? inputs))
+               (not (set-empty? (active-states))))
+      (let ([input (stream-first inputs)]
+            [unprocessed (stream-tail inputs 1)])
+        (when (trace-automata) (printf "processing input: ~v\n" input))
+        (when (trace-automata) (printf "  active-states (initial):                 ~v\n" (active-states)))
+        (expand-epsilon-states)
+        (when (trace-automata) (printf "  active-states (after epsilon expansion): ~v\n" (active-states)))
+        (reset-active-states! (successor-states input))
+        (when (trace-automata) (printf "  active-states (after transitions):       ~v\n" (active-states)))
+        (run unprocessed))))
+  (let ([inputs (as-input-stream inputs)])
     (if (stream-empty? inputs)
-        (expand-epsilon-states)  ; nothing but epsilon-expansion if no input
-        (for ([input inputs])    ; otherwise, for each input, expand, transition, and update
-          (expand-epsilon-states)
-          (reset-active-states!
-            (fold-active-states
-              (lambda (state acc) (set-union acc (as-set ((fsm-transition fsm) state input))))
-              (set))))))
-  (run (as-input-stream inputs))
-  (make-result))
+        (expand-epsilon-states)
+        (run inputs))
+    (make-result)))
 
 ;; Convert inputs to a stream if needed, or raise error if not a supported
 ;; input format (string is currently the only non-stream format supported).

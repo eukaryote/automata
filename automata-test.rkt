@@ -40,6 +40,25 @@
   (define (clear!) (set! calls '()))
   (values display get-calls clear!))
 
+;; Returns for the given list two values, the first of which is a struct
+;; implementing the stream interface, and the second of which is a function
+;; of no arguments that returns the number of times that 'stream-rest'
+;; has been called on the given struct, which is useful for testing how
+;; much of a stream was actually consumed.
+(define (list->debugstream lst)
+  (define rest-count 0)
+  (define-struct list-stream (v)
+    #:methods gen:stream
+    [(define (stream-empty? stream)
+       (empty? (list-stream-v stream)))
+     (define (stream-first stream)
+       (first (list-stream-v stream)))
+     (define (stream-rest stream)
+       (set! rest-count (+ 1 rest-count))
+       (list-stream (rest (list-stream-v stream))))])
+  (values
+    (list-stream lst)
+    (lambda () rest-count)))
 
 (test-case
   "table->lookup tests"
@@ -81,7 +100,8 @@
   "run-fsm deterministic tests: modulo-three-counter-dfsm"
   (define fsm modulo-three-counter-dfsm)
   (check-fsm? fsm '() 'q0)
-  (check-fsm? fsm '(0 1 0 1 0 1 0 0) 'q0)
+  (parameterize ([trace-automata #f])
+    (check-fsm? fsm '(0 1 0 1 0 1 0 0) 'q0))
   (check-fsm? fsm '(2 2) #f)
   (check-fsm? fsm '(2 2 2) 'q0)
   (check-fsm? fsm '(1 reset) 'q0)
@@ -112,6 +132,41 @@
   (check-fsm? fsm "d" (set 'q1 'q2 'q3))
   (check-fsm? fsm "abadaba" (set 'q3))
   (check-fsm? fsm "cada" (set 'q2)))
+
+(test-case
+  "run-fsm nondeterministic tests: exit immediately when all dead states"
+  (define transition-call-count 0)
+  (define epsilon-call-count 0)
+  (define states '(q0 q1 q2))
+  (define alphabet '(0 1 2 3 4 5 6 7 8 9))
+  (define inputs-read 0)
+  (define inputs '(0 1 2 3 4 5 6 7))
+
+  ; the machine has an epsilon transition from 'q0 to 'q1
+  ; and a normal transition from 'q0 to 'q1, and no outgoing transitions
+  ; from 'q1, so all branches should die after no more than two inputs,
+  ; regardless of the input length, and we can verify that there weren't
+  ; more calls to the transition than expected if the run exited early.
+  (define transition
+    (lambda (state symbol)
+      (set! transition-call-count (+ 1 transition-call-count))
+      (if (eq? state 'q0) (set 'q1) (set))))
+  (define epsilon
+    (lambda (state)
+      (set! epsilon-call-count (+ 1 epsilon-call-count))
+      (if (eq? state 'q0) (set 'q1) (set))))
+  (define fsm (make-fsm states alphabet 'q0 (set 'q2) transition epsilon))
+  (define-values (input-stream inputs-consumed)
+                 (list->debugstream inputs))
+  (parameterize ([trace-automata #f])
+  (check-equal? (run-fsm fsm input-stream) #f))
+  (check-true
+    (< epsilon-call-count (length inputs))
+    "immediate exit should have resulted in fewer epsilon calls than inputs")
+  (check-equal? transition-call-count 3
+    "expected 3 transition calls ('q1 dying after epsilon expansion from start state, and normal 'q0 followed by 'q1)")
+  (check-equal? (inputs-consumed) 2 "exactly 2 inputs should have been read from stream")
+)
 
 (test-case
   "run-transducer tests: flip-bits-transducer"
