@@ -190,3 +190,23 @@
       `((q0 (,0 . q0) (,1 . q0))))
     (table->lookup
       `((q0 (,0 . (,0 ,0)) (,1 . (,0 ,1)))))))
+
+;; for readability
+(define lparen #\()
+(define rparen #\))
+(define balanced-parens-pda
+  (make-pda
+    '(q0)
+    (list lparen #\, rparen)
+    (list lparen)
+    'q0
+    '(q0)
+    ;; stack should not be here, but added by constructor function
+    (lambda (stack state input stack-symbol)
+        (cond [(eq? input lparen)
+               (cons 'q0 (list lparen))]
+              [(eq? input rparen)
+               (if (or (empty? stack) (eq? lparen (car stack)))
+                   #f
+                   (cons 'q0 (list rparen)))]
+              [#t #f]))))
