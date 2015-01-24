@@ -209,4 +209,5 @@
                (if (or (empty? stack) (eq? lparen (car stack)))
                    #f
                    (cons 'q0 (list rparen)))]
-              [#t #f]))))
+              [#t #f]))
+    #f))

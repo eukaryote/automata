@@ -33,6 +33,7 @@
   pda-start-state
   pda-accepting-states
   pda-transition
+  pda-nondeterministic
 
   epsilon
   trace-automata
@@ -67,14 +68,15 @@
     (verify-accepting-states as s)
     (transducer s ia oa ss as t d)))
 
-(define (make-pda states input-alphabet stack-alphabet start-state accepting-states transition)
+(define (make-pda states input-alphabet stack-alphabet start-state accepting-states transition [nondeterministic #f])
   (let ([s (as-set states)]
         [ia (as-set input-alphabet)]
         [sa (as-set stack-alphabet)]
         [ss start-state]
         [as (as-set accepting-states)]
-        [t transition])
-    (pda s ia sa ss as t)))
+        [t transition]
+        [nd nondeterministic])
+    (pda s ia sa ss as t nd)))
 
 ;;;; Public functions for running an automaton
 
@@ -116,15 +118,80 @@
           (run-iter next-state (stream-rest inputs)))))
   (run-iter (transducer-start-state t) (as-input-stream inputs)))
 
+; (define (run-nondeterministic-fsm fsm inputs)
+;   (define-values (state->index
+;                   index->state
+;                   fold-active-states
+;                   map-active-states
+;                   reset-active-states!
+;                   update-active-states!)
+;      (make-state-helpers (fsm-states fsm) (list (fsm-start-state fsm))))
+;   (define (active-states) (list->set (map-active-states identity)))
+;   (define (expand-epsilon-states)
+;     (update-active-states! (epsilon-closure (fsm-nondeterministic fsm) (active-states))))
+;   (define (make-result)
+;     (let ([final-states (set-intersect (active-states) (fsm-accepting-states fsm))])
+;       (if (set-empty? final-states) #f final-states)))
+;   (define (successor-states input)
+;     (fold-active-states
+;       (lambda (state acc) (set-union acc (as-set ((fsm-transition fsm) state input))))
+;       (set)))
+;   (define (run inputs)
+;     (when (and (not (stream-empty? inputs))
+;                (not (set-empty? (active-states))))
+;       (let ([input (stream-first inputs)]
+;             [unprocessed (stream-tail inputs 1)])
+;         (when (trace-automata) (printf "processing input: ~v\n" input))
+;         (when (trace-automata) (printf "  active-states (initial):                 ~v\n" (active-states)))
+;         (expand-epsilon-states)
+;         (when (trace-automata) (printf "  active-states (after epsilon expansion): ~v\n" (active-states)))
+;         (reset-active-states! (successor-states input))
+;         (when (trace-automata) (printf "  active-states (after transitions):       ~v\n" (active-states)))
+;         (run unprocessed))))
+;   (let ([inputs (as-input-stream inputs)])
+;     (if (stream-empty? inputs)
+;         (expand-epsilon-states)
+;         (run inputs))
+;     (make-result)))
+
+
 (define (run-pda pda inputs)
-  (define stack '())
-  (define states (pda-states pda))
-  (define input-alphabet (pda-input-alphabet pda))
-  ;; need to decide how to handle multiple machines, each with their own
-  ;; stack, which is tricker than with nondeterministic fsms;
-  ;; is there anything better than using (cons current-state current-stack)
-  ;; for the equivalent of 'active-states' in the ndfsm implementation?
-  (set (pda-start-state pda)))
+  (define-values (state->index
+                  index->state
+                  fold-active-states
+                  map-active-states
+                  reset-active-states!
+                  update-active-states!)
+     (make-state-helpers (pda-states pda) (list (pda-start-state pda))))
+  (define (active-states) (list->set (map-active-states identity)))
+  (define (expand-epsilon-states)
+    (update-active-states! (epsilon-closure (pda-nondeterministic pda) (active-states))))
+  (define (make-result)
+    (let ([final-states (set-intersect (active-states) (pda-accepting-states pda))])
+      (if (set-empty? final-states) #f final-states)))
+  (define (successor-states input)
+    (fold-active-states
+      (lambda (state acc) (set-union acc (as-set ((pda-transition pda) state input))))
+      (set)))
+  (define (run inputs)
+    (when (and (not (stream-empty? inputs))
+               (not (set-empty? (active-states))))
+      (let ([input (stream-first inputs)]
+            [unprocessed (stream-rest inputs)])
+        (unless (set-member? (pda-input-alphabet pda) input)
+          (error (format "invalid input: ~v" input)))
+        (when (trace-automata) (printf "processing input: ~v\n" input))
+        (when (trace-automata) (printf "  active-states (initial):                  ~v\n" (active-states)))
+        (expand-epsilon-states)
+        (when (trace-automata) (printf "  active-states (after epsilon expansion): ~v\n" (active-states)))
+        (reset-active-states! (successor-states input))
+        (when (trace-automata) (printf "  active-states (after transitions):       ~v\n" (active-states)))
+        (run unprocessed))))
+  (let ([inputs (as-input-stream inputs)])
+    (if (stream-empty? inputs)
+        (expand-epsilon-states)
+        (run inputs))
+    (make-result)))
 
 ;; Public constants and utility functions
 
@@ -251,7 +318,9 @@
    ;; It should be a function that accepts (Q × (\Sigma ∪ {ε}) × \Gamma*)
    ;; as three arguments and returns a set, or a single item, of
    ;; (Q × \Gamma*) as a pair of a state and a list of stack symbols:
-   transition))
+   transition
+   ;; TODO:
+   nondeterministic))
 
 ;;;; Private implementations
 
@@ -282,9 +351,8 @@
 
 ;; Get the transitive closure of all states that are reachable from
 ;; current-states via epsilon transitions.
-(define (epsilon-closure fsm current-states)
-  (let ([states (as-set current-states)]
-        [expander (fsm-nondeterministic fsm)])
+(define (epsilon-closure expander current-states)
+  (let ([states (as-set current-states)])
     (if (procedure? expander)
         (expand-recursively states expander)
         states)))
@@ -299,7 +367,7 @@
      (make-state-helpers (fsm-states fsm) (list (fsm-start-state fsm))))
   (define (active-states) (list->set (map-active-states identity)))
   (define (expand-epsilon-states)
-    (update-active-states! (epsilon-closure fsm (active-states))))
+    (update-active-states! (epsilon-closure (fsm-nondeterministic fsm) (active-states))))
   (define (make-result)
     (let ([final-states (set-intersect (active-states) (fsm-accepting-states fsm))])
       (if (set-empty? final-states) #f final-states)))
