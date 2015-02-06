@@ -25,7 +25,6 @@
   transducer-transition
   transducer-display
 
-  epsilon
   trace-automata
   table->lookup
   clone-fsm
@@ -109,9 +108,6 @@
   (run-iter (transducer-start-state t) (as-input-stream inputs)))
 
 ;; Public constants and utility functions
-
-;; represents no symbol, as used by pda
-(define epsilon (gensym))
 
 ;; Trace information is output to stdout if trace-automata is not #f.
 (define trace-automata (make-parameter #f))
