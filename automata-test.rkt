@@ -394,15 +394,3 @@
     (fold-active-states (lambda (state acc) (set-add acc state))
                         (set))
     (list->set '(q0 q3))))
-
-(test-case
-  "pda balanced parens tests"
-  (define pda balanced-parens-pda)
-  (check-equal? (run-pda pda '()) (set 'q0))
-  (check-equal? (run-pda pda (string->list "()")) (set 'q0))
-  ; (check-equal? (run-pda pda (string->list ")")) #f)
-)
-
-; (test-case
-  ; "epsilon-closure tests"
-  ; (check-equal? #t #f))

@@ -25,16 +25,6 @@
   transducer-transition
   transducer-display
 
-  make-pda
-  run-pda
-  pda-states
-  pda-input-alphabet
-  pda-stack-alphabet
-  pda-start-state
-  pda-accepting-states
-  pda-transition
-  pda-nondeterministic
-
   epsilon
   trace-automata
   table->lookup
@@ -117,81 +107,6 @@
           (transition-output current-state input next-state)
           (run-iter next-state (stream-rest inputs)))))
   (run-iter (transducer-start-state t) (as-input-stream inputs)))
-
-; (define (run-nondeterministic-fsm fsm inputs)
-;   (define-values (state->index
-;                   index->state
-;                   fold-active-states
-;                   map-active-states
-;                   reset-active-states!
-;                   update-active-states!)
-;      (make-state-helpers (fsm-states fsm) (list (fsm-start-state fsm))))
-;   (define (active-states) (list->set (map-active-states identity)))
-;   (define (expand-epsilon-states)
-;     (update-active-states! (epsilon-closure (fsm-nondeterministic fsm) (active-states))))
-;   (define (make-result)
-;     (let ([final-states (set-intersect (active-states) (fsm-accepting-states fsm))])
-;       (if (set-empty? final-states) #f final-states)))
-;   (define (successor-states input)
-;     (fold-active-states
-;       (lambda (state acc) (set-union acc (as-set ((fsm-transition fsm) state input))))
-;       (set)))
-;   (define (run inputs)
-;     (when (and (not (stream-empty? inputs))
-;                (not (set-empty? (active-states))))
-;       (let ([input (stream-first inputs)]
-;             [unprocessed (stream-tail inputs 1)])
-;         (when (trace-automata) (printf "processing input: ~v\n" input))
-;         (when (trace-automata) (printf "  active-states (initial):                 ~v\n" (active-states)))
-;         (expand-epsilon-states)
-;         (when (trace-automata) (printf "  active-states (after epsilon expansion): ~v\n" (active-states)))
-;         (reset-active-states! (successor-states input))
-;         (when (trace-automata) (printf "  active-states (after transitions):       ~v\n" (active-states)))
-;         (run unprocessed))))
-;   (let ([inputs (as-input-stream inputs)])
-;     (if (stream-empty? inputs)
-;         (expand-epsilon-states)
-;         (run inputs))
-;     (make-result)))
-
-
-(define (run-pda pda inputs)
-  (define-values (state->index
-                  index->state
-                  fold-active-states
-                  map-active-states
-                  reset-active-states!
-                  update-active-states!)
-     (make-state-helpers (pda-states pda) (list (pda-start-state pda))))
-  (define (active-states) (list->set (map-active-states identity)))
-  (define (expand-epsilon-states)
-    (update-active-states! (epsilon-closure (pda-nondeterministic pda) (active-states))))
-  (define (make-result)
-    (let ([final-states (set-intersect (active-states) (pda-accepting-states pda))])
-      (if (set-empty? final-states) #f final-states)))
-  (define (successor-states input)
-    (fold-active-states
-      (lambda (state acc) (set-union acc (as-set ((pda-transition pda) state input))))
-      (set)))
-  (define (run inputs)
-    (when (and (not (stream-empty? inputs))
-               (not (set-empty? (active-states))))
-      (let ([input (stream-first inputs)]
-            [unprocessed (stream-rest inputs)])
-        (unless (set-member? (pda-input-alphabet pda) input)
-          (error (format "invalid input: ~v" input)))
-        (when (trace-automata) (printf "processing input: ~v\n" input))
-        (when (trace-automata) (printf "  active-states (initial):                  ~v\n" (active-states)))
-        (expand-epsilon-states)
-        (when (trace-automata) (printf "  active-states (after epsilon expansion): ~v\n" (active-states)))
-        (reset-active-states! (successor-states input))
-        (when (trace-automata) (printf "  active-states (after transitions):       ~v\n" (active-states)))
-        (run unprocessed))))
-  (let ([inputs (as-input-stream inputs)])
-    (if (stream-empty? inputs)
-        (expand-epsilon-states)
-        (run inputs))
-    (make-result)))
 
 ;; Public constants and utility functions
 
