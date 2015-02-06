@@ -57,6 +57,16 @@
     (verify-accepting-states as s)
     (transducer s ia oa ss as t d)))
 
+(define (make-pda states input-alphabet stack-alphabet start-state accepting-states transition [nondeterministic #f])
+  (let ([s (as-set states)]
+        [ia (as-set input-alphabet)]
+        [sa (as-set stack-alphabet)]
+        [ss start-state]
+        [as (as-set accepting-states)]
+        [t transition]
+        [nd nondeterministic])
+    (pda s ia sa ss as t nd)))
+
 ;;;; Public functions for running an automaton
 
 ;; Run the fsm with the given list (or any stream) of inputs, returning the
@@ -165,16 +175,17 @@
 ;; collection-type fields being sets rather than lists.
 
 (struct fsm
-  (;; a finite set of states (Q):
+  (;; a finite set of states, Q:
    states
-   ;; a finite set of symbols (\Sigma) that can be inputs:
+   ;; a finite set of input symbols, \Sigma:
    input-alphabet
-   ;; an initial state q_0, which is an element of Q
+   ;; an initial state, q_0, which is an element of Q
    start-state
-   ;; a finite set of states (A), which is a subset of Q
+   ;; a finite set of states, A, which is a subset of Q
    accepting-states
-   ;; a transition function (\delta), Q x \Sigma -> Q if deterministic
-   ;; or Q x \Sigma -> Q* if non-deterministic
+   ;; a transition function, \delta, of type:
+   ;; deterministic:    Q x \Sigma -> Q
+   ;; nondeterministic: Q x \Sigma -> Q*
    transition
    ;; whether fsm is nondeterministic; may be #t for a non-deterministic
    ;; fsm that doesn't use epsilon transitions, or a function of one argument
@@ -184,23 +195,43 @@
    nondeterministic))
 
 (struct transducer
-  (;; a finite set of states (Q):
+  (;; a finite set of states, Q:
    states
-   ;; a finite set of symbols (\Sigma) that can be inputs:
+   ;; a finite set of input symbols, \Sigma:
    input-alphabet
-   ;; a finite set of symbols (\Lambda) that can be outputs:
+   ;; a finite set of outpu symbols, \Lambda:
    output-alphabet
-   ;; an initial state q_0, which is an element of Q
+   ;; an initial state, q_0, which is an element of Q:
    start-state
-   ;; a finite set of states (A), which is a subset of Q
+   ;; a finite set of states, A, which is a subset of Q:
    accepting-states
-   ;; a transition function (\delta), of type Q x \Sigma -> Q
+   ;; a transition function, \delta, of type:  Q x \Sigma -> Q
    transition
-   ;; a display function (D), which is called with an element from either
-   ;; Q or Q x \Sigma, depending on the type of transducer, and should
-   ;; return a set of output symbols
+   ;; a display (aka output) function, \Gamma (D), of type:
+   ;; moore machine: Q -> \Lambda*
+   ;; mealy machine: Q × \Sigma -> \Lambda*
    display))
 
+(struct pda
+  (;; a finite set of states, Q:
+   states
+   ;; a finite set of input symbols, \Sigma:
+   input-alphabet
+   ;; a finite set of stack symbols, \Gamma:
+   stack-alphabet
+   ;; an initial state, q_o, which is an element of Q:
+   start-state
+   ;; a finite set of states, A, which is a subset of Q:
+   accepting-states
+   ;; a transition relation, \Delta, which a is finite subset of
+   ;; (Q × (\Sigma ∪ {ε}) × \Gamma*) × (Q × \Gamma*)
+   ;;
+   ;; It should be a function that accepts (Q × (\Sigma ∪ {ε}) × \Gamma*)
+   ;; as three arguments and returns a set, or a single item, of
+   ;; (Q × \Gamma*) as a pair of a state and a list of stack symbols:
+   transition
+   ;; TODO:
+   nondeterministic))
 
 ;;;; Private implementations
 
@@ -231,9 +262,8 @@
 
 ;; Get the transitive closure of all states that are reachable from
 ;; current-states via epsilon transitions.
-(define (epsilon-closure fsm current-states)
-  (let ([states (as-set current-states)]
-        [expander (fsm-nondeterministic fsm)])
+(define (epsilon-closure expander current-states)
+  (let ([states (as-set current-states)])
     (if (procedure? expander)
         (expand-recursively states expander)
         states)))
@@ -248,7 +278,7 @@
      (make-state-helpers (fsm-states fsm) (list (fsm-start-state fsm))))
   (define (active-states) (list->set (map-active-states identity)))
   (define (expand-epsilon-states)
-    (update-active-states! (epsilon-closure fsm (active-states))))
+    (update-active-states! (epsilon-closure (fsm-nondeterministic fsm) (active-states))))
   (define (make-result)
     (let ([final-states (set-intersect (active-states) (fsm-accepting-states fsm))])
       (if (set-empty? final-states) #f final-states)))
